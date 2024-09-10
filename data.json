@@ -1,0 +1,31 @@
+{
+  "data": [
+    {
+      "id": "1",
+      "uid": 30001,
+      "user": "John",
+      "avatar": "https://picture.devops-engineer.com.cn/file/03b8c4eedb2680507df79.jpg",
+      "like": 300,
+      "message": "Hello React!!!",
+      "timestamp": "2024-07-01"
+    },
+    {
+      "id": "2",
+      "uid": 30002,
+      "user": "Jane",
+      "avatar": "https://picture.devops-engineer.com.cn/file/9efc09026999709599861.jpg",
+      "like": 170,
+      "message": "Oh!, I am learning React!",
+      "timestamp": "2024-08-11"
+    },
+    {
+      "id": "3",
+      "uid": 30003,
+      "user": "Tom",
+      "avatar": "https://picture.devops-engineer.com.cn/file/0ced8b02079200e57ca4e.jpg",
+      "like": 230,
+      "message": "React is awesome!",
+      "timestamp": "2024-07-30"
+    }
+  ]
+}

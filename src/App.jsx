@@ -1,5 +1,7 @@
 // useState 用于管理评论列表数据
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
+// 导入 utils/request.js 用于发送请求
+import http from '@/utils/request'
 // 导入 css 文件
 import '@/css/App.scss'
 // 导入 lodash 库，用于排序
@@ -7,36 +9,6 @@ import _ from 'lodash'
 // 导入 classnames 库，用于动态添加 className
 import classNames from 'classnames'
 
-// 模拟评论区数据
-const defaultList = [
-    {
-        id: 1,
-        uid: 30001,
-        user: 'John',
-        avatar: "https://picture.devops-engineer.com.cn/file/03b8c4eedb2680507df79.jpg",
-        like: 300,
-        message: 'Hello React!!!',
-        timestamp: '2024-07-01',
-    },
-    {
-        id: 2,
-        uid: 30002,
-        user: 'Jane',
-        avatar: "https://picture.devops-engineer.com.cn/file/9efc09026999709599861.jpg",
-        like: 170,
-        message: 'Oh!, I am learning React!',
-        timestamp: '2024-08-11',
-    },
-    {
-        id: 3,
-        uid: 30003,
-        user: 'Tom',
-        avatar: "https://picture.devops-engineer.com.cn/file/0ced8b02079200e57ca4e.jpg",
-        like: 230,
-        message: 'React is awesome!',
-        timestamp: '2024-07-30',
-    }
-]
 // 模拟当前用户数据
 const currentUser = {
     id: 1,
@@ -44,22 +16,104 @@ const currentUser = {
     user: 'John',
     avatar: "https://picture.devops-engineer.com.cn/file/03b8c4eedb2680507df79.jpg",
 }
+
 // 两种排序类型
 const tabs = [
     { type: 'time', text: '最新' },
     { type: 'hot', text: '最热' }
 ]
 
+// 封装一个 hook，用于获取评论列表数据
+function useGetList() {
+    const [ commentList, setCommentList ] = useState(_.orderBy([], 'timestamp', 'desc'))
+    const inputRef = useRef(null)
+
+    // 从 API 获取数据列表
+    useEffect(() => {
+        // 异步函数，用于获取评论列表
+        async function getCommentList() {
+            const res = http.get("/data")
+            await res.then(res => {
+                setCommentList(_.orderBy(res.data, 'timestamp', 'desc'))
+            })
+        }
+
+        // 执行获取评论列表，并做一些判断，如果出错则打印错误信息，否则聚焦输入框
+        getCommentList().then(() => {
+            inputRef.current.focus()
+        }).catch(err => {
+            console.log(err)
+        })
+    }, [])
+
+    return { commentList, setCommentList, inputRef }
+}
+
+// 封装评论项组件
+function CommentItem({ item, onDelete }) {
+    return (
+        <div className="reply-item" key={item.id}>
+            {/* 头像 */}
+            <div className="root-reply-avatar">
+                <div className="bili-avatar">
+                    <img
+                        className="bili-avatar-img"
+                        alt=""
+                        src={item.avatar}
+                    />
+                </div>
+            </div>
+
+            <div className="content-wrap">
+                {/* 用户名 */}
+                <div className="user-info">
+                    <div className="user-name">{item.user}</div>
+                </div>
+                {/* 评论内容 */}
+                <div className="root-reply">
+                    <span className="reply-content">{item.message}</span>
+                    <div className="reply-info">
+                        {/* 评论时间 */}
+                        <span className="reply-time">{item.timestamp}</span>
+                        {/* 评论数量 */}
+                        <span className="reply-time">点赞数: {item.like}</span>
+                        {/* 删除按钮 */}
+                        {currentUser.uid === item.uid &&
+                            <span className="delete-btn" onClick={() => onDelete(item.id)}>删除</span>}
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 function App() {
     // 解构赋值
-    const [commentList, setCommentList] = useState(_.orderBy(defaultList, 'timestamp', 'desc'))
-    const [type, setType] = useState('time')
-    const [content, setContent] = useState('')
-    const inputRef = useRef(null)
+    const [ type, setType ] = useState('time')
+    const [ content, setContent ] = useState('')
+    const { commentList, setCommentList, inputRef } = useGetList()
 
     // 删除评论的逻辑（模拟删除）
     const handleDelete = (id) => {
-        setCommentList(commentList.filter(item => item.id !== id))
+        async function deleteComment() {
+            try {
+                const res = await http.delete(`/data/${id}`)
+                if (res.status === 200) {
+                    // 更新评论列表
+                    const updatedList = commentList.filter(item => item.id !== id)
+                    // 更新状态
+                    setCommentList(updatedList)
+                } else {
+                    console.log('删除失败', res)
+                }
+            } catch (err) {
+                console.log('请求失败', err)
+            }
+        }
+
+        deleteComment().catch(err => {
+            console.log('删除失败', err)
+        })
     }
 
     // 点赞评论的逻辑
@@ -79,7 +133,7 @@ function App() {
 
         // 创建新的评论对象
         const newCommentItem = {
-            id: commentList.length + 1,
+            id: `${commentList.length + 1}`,
             uid: currentUser.uid,
             user: currentUser.user,
             avatar: currentUser.avatar,
@@ -87,6 +141,28 @@ function App() {
             message: content,
             timestamp: new Date().toISOString().split('T')[0], // 使用当前日期
         }
+
+        // 使用 http.post 发送请求
+        async function postComment() {
+            try {
+                const res = http.post("/data", newCommentItem)
+                await res.then(res => {
+                    if (res.status === 200) {
+                        console.log('评论成功', res)
+                    } else {
+                        console.log('评论失败', res)
+                    }
+                })
+            } catch (err) {
+                console.log('请求失败', err)
+            }
+        }
+
+        postComment().then(() => {
+            console.log('评论成功')
+        }).catch(err => {
+            console.log('评论失败', err)
+        })
 
         // 更新评论列表
         const updatedList = [...commentList, newCommentItem]
@@ -158,37 +234,7 @@ function App() {
                 <div className="reply-list">
                     {/* 评论项 */}
                     {commentList.map(item => (
-                        <div className="reply-item" key={item.id}>
-                            {/* 头像 */}
-                            <div className="root-reply-avatar">
-                                <div className="bili-avatar">
-                                    <img
-                                        className="bili-avatar-img"
-                                        alt=""
-                                        src={item.avatar}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="content-wrap">
-                                {/* 用户名 */}
-                                <div className="user-info">
-                                    <div className="user-name">{item.user}</div>
-                                </div>
-                                {/* 评论内容 */}
-                                <div className="root-reply">
-                                    <span className="reply-content">{item.message}</span>
-                                    <div className="reply-info">
-                                        {/* 评论时间 */}
-                                        <span className="reply-time">{item.timestamp}</span>
-                                        {/* 评论数量 */}
-                                        <span className="reply-time">点赞数: {item.like}</span>
-                                        {/* 删除按钮 */}
-                                        {currentUser.uid === item.uid && <span className="delete-btn" onClick={() => handleDelete(item.id)}>删除</span> }
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <CommentItem item={item} key={item.id} onDelete={handleDelete} />
                     ))}
                 </div>
             </div>
